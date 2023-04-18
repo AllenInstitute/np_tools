@@ -37,6 +37,16 @@ def ssh(host: str) -> fabric.Connection:
     )
 
 
+def hpc() -> fabric.Connection:
+    """Fabric connection to `hpc-login` using `svc_neuropix` creds.
+
+    >>> with hpc() as connection:
+    ...     response = connection.run('echo "hello world"', hide=True)
+
+    """
+    return ssh('hpc-login')
+
+
 def run_cmd_on_host(
     host: str,
     cmd: str,
