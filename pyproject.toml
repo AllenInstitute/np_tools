@@ -2,7 +2,7 @@
 
 [project]
 name = "np_tools"
-version = "0.1.0"
+version = "0.1.1"
 description = "General-purpose tools for common tasks encountered in Mindscope Neuropixels workflows."
 authors = [
     {name = "bjhardcastle", email = "ben.hardcastle@alleninstitute.org"},
@@ -54,7 +54,7 @@ ruff = "ruff --fix src"
 blue = "blue src"
 pytest = "pytest --cov"
 prebuild = {composite = ["blue", "ruff", "pytest"]}
-bump = "pdm bump patch" # defaults to patch; `pdm run bump -m` to bump minor
+bump = "bump -p pyproject.toml" # defaults to patch; `pdm run bump -m` to bump minor
 build = {composite = ["prebuild", "pdm build"]}
 dry-run = {composite = ["prebuild", "pdm build", "pdm publish --no-build --repository https://test.pypi.org/simple"]}
 publish = {composite = ["prebuild", "pdm build", "pdm publish --no-build"]}
