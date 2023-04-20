@@ -3,6 +3,7 @@ Tools for running commands via ssh on remote hosts.
 """
 from __future__ import annotations
 
+
 import doctest
 import subprocess
 import sys
@@ -37,14 +38,8 @@ def ssh(host: str) -> fabric.Connection:
     )
 
 
-def hpc() -> fabric.Connection:
-    """Fabric connection to `hpc-login` using `svc_neuropix` creds.
-
-    >>> with hpc() as connection:
-    ...     response = connection.run('echo "hello world"', hide=True)
-
-    """
-    return ssh('hpc-login')
+hpc = ssh('hpc-login')
+"""Fabric connection to `hpc-login` using `svc_neuropix` creds."""
 
 
 def run_cmd_on_host(
@@ -63,7 +58,7 @@ def run_cmd_on_host(
     >>> run_cmd_on_host('localhost', 'echo hello world').stdout.strip()
     b'hello world'
     >>> _ = run_cmd_on_host('localhost', 'echo hello world', hide_output=False)
-    
+
     # prints 'hello world'
     """
     if host == 'localhost':

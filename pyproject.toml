@@ -2,7 +2,7 @@
 
 [project]
 name = "np_tools"
-version = "0.1.1"
+version = "0.1.4"
 description = "General-purpose tools for common tasks encountered in Mindscope Neuropixels workflows."
 authors = [
     {name = "bjhardcastle", email = "ben.hardcastle@alleninstitute.org"},
@@ -50,7 +50,7 @@ dev = [
 
 [tool.pdm.scripts]
 # usage: pdm run <script> [args]
-ruff = "ruff --fix src"
+ruff = "ruff check src --fix-only"
 blue = "blue src"
 pytest = "pytest --cov"
 prebuild = {composite = ["blue", "ruff", "pytest"]}
@@ -58,9 +58,11 @@ bump = "bump -p pyproject.toml" # defaults to patch; `pdm run bump -m` to bump m
 build = {composite = ["prebuild", "pdm build"]}
 dry-run = {composite = ["prebuild", "pdm build", "pdm publish --no-build --repository https://test.pypi.org/simple"]}
 publish = {composite = ["prebuild", "pdm build", "pdm publish --no-build"]}
+pub = {composite = ["bump", "pdm publish"]}
 
 [tool.ruff]
 ignore-init-module-imports = true
+line-length = 79
 
 [tool.pytest.ini_options]
 addopts = [
@@ -84,7 +86,8 @@ source = ["src"]
 
 [tool.coverage.run]
 branch = true
-source = ["np_tools"]
+source = ["src"]
+omit = ["*__init__*"]
 
 [tool.coverage.report]
 show_missing = true
