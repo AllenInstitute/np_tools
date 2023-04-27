@@ -3,12 +3,16 @@ Tools for working with Open Ephys raw data files.
 """
 from __future__ import annotations
 import contextlib
+import datetime
 import hashlib
 import pathlib
 import shutil
 import subprocess
 import sys
-from typing import Iterable
+import time
+from typing import Iterable, Optional
+
+import np_config
 import np_logging
 
 
@@ -85,3 +89,33 @@ def dir_size(path: pathlib.Path) -> int:
         if pathlib.Path(f).is_file()
     )
     return dir_size
+
+
+def free_gb(path: str | bytes | pathlib.Path) -> float:
+    "Return free space at `path`, to .1 GB. Raises FileNotFoundError if `path` not accessible."
+    path = pathlib.Path(path)
+    path = np_config.unc_to_local(path)
+    return round(shutil.disk_usage(path).free / 1e9, 1)
+
+
+def get_files_created_between(
+    path: str | bytes | pathlib.Path,
+    glob: str = "*",
+    start: float | datetime.datetime = 0,
+    end: Optional[float | datetime.datetime] = None,
+    reverse: bool = False,
+) -> tuple[pathlib.Path, ...]:
+    """Recusively get search for files in subfolders of `path` created between `start` and `end`.
+    
+    Sequence is sorted by ascending creation time (oldest first). `reverse` reverses this order.
+    """
+    path = pathlib.Path(path)
+    if not path.is_dir():
+        raise ValueError(f'{path} is not a directory, cannot glob for files')
+    if not end:
+        end = time.time()
+    start = start.timestamp() if isinstance(start, datetime.datetime) else start
+    end = end.timestamp() if isinstance(end, datetime.datetime) else end
+    ctime = lambda x: x.stat().st_ctime
+    files = (file for file in path.rglob(glob) if int(start) <= ctime(file) <= end)
+    return tuple(sorted(files, key=ctime, reverse=reverse))
