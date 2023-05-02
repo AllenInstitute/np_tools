@@ -2,13 +2,14 @@
 
 [project]
 name = "np_tools"
-version = "0.1.5"
+version = "0.1.6"
 description = "General-purpose tools for common tasks encountered in Mindscope Neuropixels workflows."
 authors = [
     {name = "bjhardcastle", email = "ben.hardcastle@alleninstitute.org"},
 ]
 dependencies = [
-    "fabric>=3.0.0",
+    "fabric",
+    "invoke<2.1", # invoke decorator is broken in 2.1
     "np-config>=0.4.17",
     "np-logging>=0.5.1",
 ]
