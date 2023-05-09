@@ -104,7 +104,7 @@ def move(src: PathLike, dest: PathLike) -> None:
     if src.is_dir():
         shutil.rmtree(src)
     else:
-        src.unlink(missing_ok=True)
+        src.unlink()
     logger.debug(f'Deleted {src}')
 
 
@@ -124,7 +124,7 @@ def symlink(src: PathLike, dest: PathLike) -> None:
     if dest.is_symlink() and dest.resolve() == src.resolve():
         logger.debug(f'Symlink already exists to {src} from {dest}')
         return
-    dest.unlink(missing_ok=True)
+    dest.unlink()
     with contextlib.suppress(FileExistsError):
         dest.symlink_to(src)
     logger.debug(f'Created symlink to {src} from {dest}')
