@@ -97,12 +97,13 @@ def copy(src: PathLike, dest: PathLike, max_attempts: int = 2) -> None:
     logger.debug(f'Copy of {src} at {dest} validated with checksum')
 
 
-def move(src: PathLike, dest: PathLike) -> None:
-    """Copy `src` to `dest` with checksum validation, then delete `src`."""
+def move(src: PathLike, dest: PathLike, **rmtree_kwargs) -> None:
+    """Copy `src` to `dest` with checksum validation, then delete `src`.
+    """
     src, dest = from_pathlike(src), from_pathlike(dest)
     copy(src, dest)
     if src.is_dir():
-        shutil.rmtree(src, ignore_errors=True)
+        shutil.rmtree(src, **rmtree_kwargs)
     else:
         src.unlink()
     logger.debug(f'Deleted {src}')
