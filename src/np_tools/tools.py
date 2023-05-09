@@ -102,7 +102,7 @@ def move(src: PathLike, dest: PathLike) -> None:
     src, dest = from_pathlike(src), from_pathlike(dest)
     copy(src, dest)
     if src.is_dir():
-        shutil.rmtree(src)
+        shutil.rmtree(src, ignore_errors=True)
     else:
         src.unlink()
     logger.debug(f'Deleted {src}')
