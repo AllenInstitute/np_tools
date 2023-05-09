@@ -1,85 +1,82 @@
+import pytest
 import np_logging
 
 from np_tools import *
 
-def test_copy_dir_to_dir(tmp_path):
-    src = tmp_path / 'src'
-    dest = tmp_path / 'dest'
-    src.mkdir()
-    (src / 'test.txt').write_text('hello world')
-    copy(src, dest)
-    assert (dest / 'test.txt').exists()
-    assert (dest / 'test.txt').read_text() == 'hello world'
+TEST_BYTES = b'test'
+EMPTY_BYTES = b''
 
-def test_copy_new_file_to_dir(tmp_path):
+@pytest.fixture
+def src_dir(tmp_path):
     src = tmp_path / 'src'
-    dest = tmp_path / 'dest'
     src.mkdir()
-    (src / 'test.txt').write_text('hello world')
-    copy(src / 'test.txt', dest)
-    assert (dest / 'test.txt').exists()
-    assert (dest / 'test.txt').read_text() == 'hello world'
+    return src
 
-def test_copy_new_file_to_file(tmp_path):
-    src = tmp_path / 'src'
-    dest = tmp_path / 'dest'
-    src.mkdir()
-    (src / 'test.txt').write_text('hello world')
-    copy(src / 'test.txt', dest / 'test.txt')
-    assert (dest / 'test.txt').exists()
-    assert (dest / 'test.txt').read_text() == 'hello world'
+@pytest.fixture
+def dest_dir(tmp_path):
+    dest_dir = tmp_path / 'dest'
+    dest_dir.mkdir()
+    return dest_dir
 
+@pytest.fixture
+def src_file(src_dir):
+    src_file = src_dir / 'test.txt'
+    src_file.write_bytes(TEST_BYTES)
+    return src_file
 
-def test_copy_new_dir(tmp_path):
-    src = tmp_path / 'src'
-    dest = tmp_path / 'dest'
-    src.mkdir()
-    (src / 'test.txt').write_text('hello world')
-    copy(src, dest)
-    assert (dest).exists()
-    assert (dest / 'test.txt').exists()
-    assert (dest / 'test.txt').read_text() == 'hello world'
+@pytest.fixture
+def empty_dest_file(dest_dir, src_file):
+    empty_dest_file = dest_dir / src_file.name
+    empty_dest_file.write_bytes(EMPTY_BYTES)
+    return empty_dest_file
+
+def dest_matches_src(src, dest):
+    if not src.is_dir():
+        return dest.read_bytes() == src.read_bytes()
+    for src_path in src.rglob('*'):
+        dest_path = dest / src_path.relative_to(src)
+        assert dest_path.exists()
+        if src_path.is_dir():
+            continue
+        assert dest_path.read_bytes() == src_path.read_bytes()
+    return True
+
+def test_copy_dir_to_dir(src_file, dest_dir):
+    copy(src_file.parent, dest_dir)
+    assert dest_matches_src(src_file.parent, dest_dir)
     
-    
-def test_validate_existing_file(tmp_path):
-    src = tmp_path / 'src'
+def test_copy_file_to_dir(dest_dir, src_file):
+    copy(src_file, dest_dir)
+    assert dest_matches_src(src_file.parent, dest_dir)
+
+def test_copy_file_to_file(src_file, dest_dir):
+    copy(src_file, dest_dir / src_file.name)
+    assert dest_matches_src(src_file.parent, dest_dir)
+
+def test_copy_dir_to_non_existant_dir(src_file, tmp_path):
     dest = tmp_path / 'dest'
-    src.mkdir()
-    dest.mkdir()
-    (src / 'test.txt').write_text('hello world')
-    (dest / 'test.txt').write_text('_')
-    copy(src / 'test.txt', dest)
-    assert (dest / 'test.txt').read_text() == 'hello world'
+    copy(src_file, dest)
+    assert dest_matches_src(src_file.parent, dest)
     
-def test_validate_existing_dir(tmp_path):
-    src = tmp_path / 'src'
-    dest = tmp_path / 'dest'
-    src.mkdir()
-    dest.mkdir()
-    (src / 'test.txt').write_text('hello world')
-    (dest / 'test.txt').write_text('_')
-    copy(src, dest)
-    assert (dest / 'test.txt').read_text() == 'hello world'
+def test_copy_file_to_existing_file(src_file, empty_dest_file):
+    copy(src_file, empty_dest_file.parent)
+    assert dest_matches_src(src_file.parent, empty_dest_file.parent)
     
-def test_validate_move_dir(tmp_path):
-    src = tmp_path / 'src'
-    dest = tmp_path / 'dest'
-    src.mkdir()
-    dest.mkdir()
-    (src / 'test.txt').write_text('hello world')
-    (dest / 'test.txt').write_text('_')
-    move(src, dest)
-    assert (dest / 'test.txt').read_text() == 'hello world'
-    assert not src.exists()
+def test_move_dir(src_file, dest_dir):
+    try:
+        move(src_file.parent, dest_dir)
+    except PermissionError:
+        pass
+    else:
+        assert not src_file.parent.exists()
+        assert (dest_dir / src_file.name).read_bytes() == TEST_BYTES
     
-def test_validate_move_file(tmp_path):
-    src = tmp_path / 'src'
-    dest = tmp_path / 'dest'
-    src.mkdir()
-    dest.mkdir()
-    (src / 'test.txt').write_text('hello world')
-    (dest / 'test.txt').write_text('_')
-    move(src / 'test.txt', dest)
-    assert (dest / 'test.txt').read_text() == 'hello world'
-    assert src.exists()
-    assert not (src / 'test.txt').exists()
+def test_move_file(src_file, dest_dir):
+    try:
+        move(src_file, dest_dir)
+    except PermissionError:
+        pass
+    else:
+        assert not src_file.exists()
+        assert src_file.parent.exists()
+        assert (dest_dir / src_file.name).read_bytes() == TEST_BYTES
