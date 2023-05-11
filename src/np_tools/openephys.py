@@ -5,7 +5,7 @@ import doctest
 import json
 import pathlib
 import tempfile
-from typing import Any, Optional, Sequence
+from typing import Any, Generator, Optional, Sequence
 
 import np_logging
 
@@ -78,13 +78,76 @@ def get_ephys_root(path: pathlib.Path) -> pathlib.Path:
     )
 
 
+
+def get_filtered_ephys_paths_relative_to_record_node_parents(
+    toplevel_ephys_path: pathlib.Path
+    ) -> Generator[tuple[pathlib.Path, pathlib.Path], None, None]:
+    """For restructuring the raw ephys data in a session folder, we want to
+    discard superfluous recording folders and only keep the "good" data, but
+    with the overall directory structure relative to `Record Node*` folders intact.
+    
+    Supply a top-level path that contains `Record Node *`
+    subfolders somewhere in its tree. 
+    
+    Returns a generator akin to `path.rglob('Record Node*')` except:
+    - only paths associated with the "good" ephys data are returned (with some
+    assumptions made about the ephys session)
+    - a tuple of two paths is supplied:
+        - `(abs_path, abs_path.relative_to(record_node.parent))`
+        ie. path[1] should always start with `Record Node *`
+    
+    Expectation is:
+    - `/npexp_path/ephys_*/Record Node */ recording1 / ... / continuous.dat`
+    
+    ie. 
+    - one recording per `Record Node *` folder
+    - one subfolder in `npexp_path/` per `Record Node *` folder (following the
+    pipeline `*_probeABC` / `*_probeDEF` convention for recordings split across two
+    drives)
+    
+
+    Many folders have:
+    - `/npexp_path/Record Node */ recording*/ ...` 
+    
+    ie.
+    - multiple recording folders per `Record Node *` folder
+    - typically there's one proper `recording` folder: the rest are short,
+    aborted recordings during setup
+    
+    We filter out the superfluous small recording folders here.
+    
+    Some folders (Templeton) have:
+    - `/npexp_path/Record Node */ ...`
+    
+    ie.
+    - contents of expected ephys subfolders directly deposited in npexp_path
+    
+    """
+    record_nodes = toplevel_ephys_path.rglob('Record Node*')
+    
+    for record_node in record_nodes:
+        
+        superfluous_recording_dirs = tuple(
+            _.parent for _ in get_superfluous_oebin_paths(record_node)
+        )
+        logger.debug(f'Found {len(superfluous_recording_dirs)} superfluous recording dirs to exclude: {superfluous_recording_dirs}')
+        
+        for abs_path in record_node.rglob('*'):
+            is_superfluous_path = any(_ in abs_path.parents for _ in superfluous_recording_dirs)
+            
+            if is_superfluous_path:
+                continue
+            
+            yield abs_path, abs_path.relative_to(record_node.parent)
+       
+       
 def get_raw_ephys_subfolders(
     path: pathlib.Path, min_size_gb: Optional[int | float] = None
 ) -> tuple[pathlib.Path, ...]:
     """
     Return raw ephys recording folders, defined as the root that Open Ephys
     records to, e.g. `A:/1233245678_366122_20220618_probeABC`.
-    """
+    """ 
 
     subfolders = set()
 
