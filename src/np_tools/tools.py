@@ -16,13 +16,12 @@ from typing import Iterable, Optional, Union
 import crc32c
 import np_config
 import np_logging
-
+import rich.progress
 
 logger = np_logging.get_logger(__name__)
 
 PathLike = Union[str, bytes, os.PathLike, pathlib.Path]
 from_pathlike = lambda pathlike: pathlib.Path(os.fsdecode(pathlike))
-
 
 if os.name == 'nt':
     # Remote to remote symlink creation is disabled by default
@@ -37,7 +36,7 @@ else:
     R2R_SYMLINKS_ENABLED = True
     
     
-def checksum(path: PathLike) -> str:
+def checksum(path: PathLike, show_progress_bar=True) -> str:
     path = from_pathlike(path)
     hasher = crc32c.crc32c
     formatted = lambda x: f'{x:08X}'
@@ -46,13 +45,45 @@ def checksum(path: PathLike) -> str:
     if path.stat().st_size < multi_part_threshold_gb * 1024**3:
         return formatted(hasher(path.read_bytes()))
     hash = 0
-    with open(path, 'rb') as f:
+    
+    with open(path, 'rb') as f, get_progress():
+        progress: rich.progress.Progress = globals()['progress']
+        task = progress.add_task(f'Checksumming {path.name}', total=path.stat().st_size, visible=show_progress_bar)
         for chunk in iter(
             lambda: f.read(blocks_per_chunk), b''
-        ):
+        ):  
+            progress.update(task, advance=blocks_per_chunk) # type: ignore
             hash = hasher(chunk, hash)
+    progress.update(task, visible=False)
     return formatted(hash)
 
+def get_progress() -> rich.progress.Progress | contextlib.nullcontext[None]:
+    progress_context = contextlib.nullcontext()
+    if 'progress' not in globals():
+        progress_context = globals()['progress'] = rich.progress.Progress(
+            rich.progress.TextColumn("{task.description}", justify="right"),
+            rich.progress.BarColumn(),
+            rich.progress.TimeRemainingColumn(),
+            rich.progress.FileSizeColumn(),
+            rich.progress.TotalFileSizeColumn(),
+        )
+    return progress_context
+
+def get_copy_task(src) -> rich.progress.TaskID:
+    get_progress()
+    progress: rich.progress.Progress = globals()['progress']
+    if not progress.tasks:
+        task = progress.add_task(
+            description='[cyan]Getting file sizes',
+            start=False,
+            )
+        progress.update(
+            task,
+            description='[cyan]Copying files',
+            total=dir_size(src) if src.is_dir() else src.stat().st_size
+            )
+        progress.start_task(task)
+    return progress.tasks[0].id
 
 def checksums_match(*paths: PathLike) -> bool:
     checksums = tuple(checksum(p) for p in paths)
@@ -70,31 +101,36 @@ def copy(src: PathLike, dest: PathLike, max_attempts: int = 2) -> None:
     """
     src, dest = from_pathlike(src), from_pathlike(dest)
 
-    if dest.exists() and dest.is_symlink():
-        dest.unlink() # we'll replace symlink with src file
+    with get_progress():
+        progress: rich.progress.Progress = globals()['progress']
+        task = get_copy_task(src)
     
-    if src.is_dir(): # copy files recursively
-        for path in src.iterdir():
-            copy(path, dest / path.name)
-        return
-
-    if not dest.suffix: # dest is a folder, but might not exist yet so can't use `is_dir`
-        dest = dest / src.name
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    
-    if not dest.exists():
-        shutil.copy2(src, dest)
-        logger.debug(f'Copied {src} to {dest}')
+        if dest.exists() and dest.is_symlink():
+            dest.unlink() # we'll replace symlink with src file
         
-    for _ in range(max_attempts):
-        if checksums_match(src, dest):
-            break
-        shutil.copy2(src, dest)
-    else:
-        raise OSError(
-            f'Failed to copy {src} to {dest} with checksum-validation after {max_attempts} attempts'
-        )
-    logger.debug(f'Copy of {src} at {dest} validated with checksum')
+        if src.is_dir(): # copy files recursively
+            for path in src.iterdir():
+                copy(path, dest / path.name)
+            return
+        
+        if not dest.suffix: # dest is a folder, but might not exist yet so can't use `is_dir`
+            dest = dest / src.name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        
+        if not dest.exists():
+            shutil.copy2(src, dest)
+            logger.debug(f'Copied {src} to {dest}')
+            
+        for _ in range(max_attempts):
+            if checksums_match(src, dest):
+                break
+            shutil.copy2(src, dest)
+        else:
+            raise OSError(
+                f'Failed to copy {src} to {dest} with checksum-validation after {max_attempts} attempts'
+            )
+        progress.update(task, advance=src.stat().st_size if src.is_file() else dir_size(src))
+        logger.debug(f'Copy of {src} at {dest} validated with checksum')
 
 
 def move(src: PathLike, dest: PathLike, **rmtree_kwargs) -> None:
@@ -125,7 +161,8 @@ def symlink(src: PathLike, dest: PathLike) -> None:
     if dest.is_symlink() and dest.resolve() == src.resolve():
         logger.debug(f'Symlink already exists to {src} from {dest}')
         return
-    dest.unlink()
+    with contextlib.suppress(FileNotFoundError):
+        dest.unlink()
     with contextlib.suppress(FileExistsError):
         dest.symlink_to(src)
     logger.debug(f'Created symlink to {src} from {dest}')
@@ -177,3 +214,8 @@ def get_files_created_between(
     ctime = lambda x: x.stat().st_ctime
     files = (file for file in path.rglob(glob) if int(start) <= ctime(file) <= end)
     return tuple(sorted(files, key=ctime, reverse=reverse))
+
+copy(
+    r"\\allen\programs\mindscope\workgroups\np-exp\1269540173_666991_20230510",
+    "C:/Users/ben.hardcastle/Desktop/1269540173_666991_20230510"
+    )
