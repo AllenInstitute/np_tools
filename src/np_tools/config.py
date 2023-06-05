@@ -1,5 +1,4 @@
 import os
-import sys
 
 import np_config
 import np_logging

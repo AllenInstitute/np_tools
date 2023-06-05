@@ -4,14 +4,12 @@ Tools for working with Open Ephys raw data files.
 from __future__ import annotations
 import contextlib
 import datetime
-import hashlib
 import os
 import pathlib
 import shutil
 import subprocess
-import sys
 import time
-from typing import Iterable, Optional, Union
+from typing import Optional, Union
 
 import crc32c
 import np_config
@@ -21,7 +19,8 @@ import rich.progress
 logger = np_logging.get_logger(__name__)
 
 PathLike = Union[str, bytes, os.PathLike, pathlib.Path]
-from_pathlike = lambda pathlike: pathlib.Path(os.fsdecode(pathlike))
+def from_pathlike(pathlike):
+    return pathlib.Path(os.fsdecode(pathlike))
 
 if os.name == 'nt':
     # Remote to remote symlink creation is disabled by default
@@ -35,11 +34,11 @@ if os.name == 'nt':
 else:
     R2R_SYMLINKS_ENABLED = True
     
-    
 def checksum(path: PathLike, show_progress_bar=True) -> str:
     path = from_pathlike(path)
     hasher = crc32c.crc32c
-    formatted = lambda x: f'{x:08X}'
+    def formatted(x):
+        return f'{x:08X}'
     blocks_per_chunk = 4096
     multi_part_threshold_gb = 0.2
     if path.stat().st_size < multi_part_threshold_gb * 1024**3:
@@ -80,7 +79,7 @@ def get_copy_task(src) -> rich.progress.TaskID:
         progress.update(
             task,
             description='[cyan]Copying files',
-            total=dir_size(src) if src.is_dir() else src.stat().st_size
+            total=size(src)
             )
         progress.start_task(task)
     return progress.tasks[0].id
@@ -129,7 +128,7 @@ def copy(src: PathLike, dest: PathLike, max_attempts: int = 2) -> None:
             raise OSError(
                 f'Failed to copy {src} to {dest} with checksum-validation after {max_attempts} attempts'
             )
-        progress.update(task, advance=src.stat().st_size if src.is_file() else dir_size(src))
+        progress.update(task, advance=size(src))
         logger.debug(f'Copy of {src} at {dest} validated with checksum')
 
 
@@ -167,6 +166,15 @@ def symlink(src: PathLike, dest: PathLike) -> None:
         dest.symlink_to(src)
     logger.debug(f'Created symlink to {src} from {dest}')
 
+    
+def size(path: PathLike) -> int:
+    """Return the size of a file or directory in bytes"""
+    path = from_pathlike(path)
+    return dir_size(path) if path.is_dir() else path.stat().st_size
+
+def size_gb(path: PathLike) -> float:
+    """Return the size of a file or directory in GB"""
+    return round(size(path) / 1024 ** 3, 1)
 
 def dir_size(path: PathLike) -> int:
     """Return the size of a directory in bytes"""
@@ -183,15 +191,13 @@ def dir_size(path: PathLike) -> int:
 
 def dir_size_gb(path: PathLike) -> float:
     """Return the size of a directory in GB"""
-    return round(dir_size(path) / 1e9, 1)
-
+    return round(dir_size(path) / 1024 ** 3, 1)
 
 def free_gb(path: PathLike) -> float:
     "Return free space at `path`, to .1 GB. Raises FileNotFoundError if `path` not accessible."
     path = from_pathlike(path)
     path = np_config.unc_to_local(path)
-    return round(shutil.disk_usage(path).free / 1e9, 1)
-
+    return round(shutil.disk_usage(path).free / 1024 ** 3, 1)
 
 def get_files_created_between(
     path: PathLike,
@@ -211,11 +217,7 @@ def get_files_created_between(
         end = time.time()
     start = start.timestamp() if isinstance(start, datetime.datetime) else start
     end = end.timestamp() if isinstance(end, datetime.datetime) else end
-    ctime = lambda x: x.stat().st_ctime
+    def ctime(x):
+        return x.stat().st_ctime
     files = (file for file in path.rglob(glob) if int(start) <= ctime(file) <= end)
     return tuple(sorted(files, key=ctime, reverse=reverse))
-
-copy(
-    r"\\allen\programs\mindscope\workgroups\np-exp\1269540173_666991_20230510",
-    "C:/Users/ben.hardcastle/Desktop/1269540173_666991_20230510"
-    )

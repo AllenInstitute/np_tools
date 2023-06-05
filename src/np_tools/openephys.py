@@ -9,7 +9,7 @@ from typing import Any, Generator, Optional, Sequence
 
 import np_logging
 
-import np_tools.tools as tools
+import np_tools.file_io as file_io
 
 
 logger = np_logging.get_logger(__name__)
@@ -55,7 +55,7 @@ def is_valid_ephys_folder(
         return False
     if not is_new_ephys_folder(path):
         return False
-    if min_size_gb is not None and tools.dir_size(path) < min_size_gb * 1024**3: # GB
+    if min_size_gb is not None and file_io.dir_size(path) < min_size_gb * 1024**3: # GB
         return False
     return True
 
@@ -167,7 +167,7 @@ def get_raw_ephys_subfolders(
         subfolders.add(get_ephys_root(f))
 
     if min_size_gb is not None:
-        subfolders = {_ for _ in subfolders if tools.dir_size(_) < min_size_gb * 1024**3}
+        subfolders = {_ for _ in subfolders if file_io.dir_size(_) < min_size_gb * 1024**3}
 
     return tuple(sorted(list(subfolders), key=lambda s: str(s)))
 
@@ -196,7 +196,7 @@ def get_single_oebin_path(path: pathlib.Path) -> pathlib.Path:
         return oebin_paths[0]
     
     oebin_parents = (_.parent for _ in oebin_paths)
-    dir_sizes = tuple(tools.dir_size(_) for _ in oebin_parents)
+    dir_sizes = tuple(file_io.dir_size(_) for _ in oebin_parents)
     return oebin_paths[dir_sizes.index(max(dir_sizes))]
 
 
@@ -229,7 +229,7 @@ def assert_xml_files_match(paths: Sequence[pathlib.Path]) -> None:
         raise FileNotFoundError(
             'Not all paths are files, or they do not exist'
         )
-    if not tools.checksums_match(paths):
+    if not file_io.checksums_match(paths):
         
         # if the files are the same size and were created within +/- 1 second
         # of each other, we'll assume they're the same
