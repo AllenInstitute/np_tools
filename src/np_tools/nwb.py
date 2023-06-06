@@ -13,7 +13,7 @@ logger = np_logging.getLogger(__name__)
 
 def init_nwb(
     session: np_session.Session,
-    description: str = 'Data and metadata for an Ecephys session',
+    description: str = 'Data and metadata for a Neuropixels ecephys session',
 ) -> pynwb.NWBFile:
     """
     Init `NWBFile` with minimum required arguments from an
