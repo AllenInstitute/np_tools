@@ -2,7 +2,7 @@
 
 [project]
 name = "np_tools"
-version = "0.1.16"
+version = "0.1.17"
 description = "General-purpose tools for common tasks encountered in Mindscope Neuropixels workflows."
 authors = [
     {name = "bjhardcastle", email = "ben.hardcastle@alleninstitute.org"},
@@ -14,7 +14,7 @@ dependencies = [
     "np-logging>=0.5.1",
     "crc32c>=2.3.post0",
     "rich>=13.3.5",
-    "pynwb>=2.3.2",
+    "pynwb",
 ]
 requires-python = ">=3.7,<4"
 readme = "README.md"
