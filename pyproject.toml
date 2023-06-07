@@ -2,7 +2,7 @@
 
 [project]
 name = "np_tools"
-version = "0.1.18"
+version = "0.1.19"
 description = "General-purpose tools for common tasks encountered in Mindscope Neuropixels workflows."
 authors = [
     {name = "bjhardcastle", email = "ben.hardcastle@alleninstitute.org"},
