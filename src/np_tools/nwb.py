@@ -35,7 +35,7 @@ def load_nwb(
         return f.read()
 
 
-def write_nwb(
+def save_nwb(
     nwb_file: pynwb.NWBFile,
     output_path: Optional[str | pathlib.Path] = None,
     ) -> pathlib.Path:
