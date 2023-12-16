@@ -2,7 +2,7 @@
 
 [project]
 name = "np_tools"
-version = "0.1.19"
+version = "0.1.21"
 description = "General-purpose tools for common tasks encountered in Mindscope Neuropixels workflows."
 authors = [
     {name = "bjhardcastle", email = "ben.hardcastle@alleninstitute.org"},
@@ -36,8 +36,11 @@ Source = "https://github.com/AllenInstitute/np_tools"
 Issues = "https://github.com/AllenInstitute/np_tools/issues"
 
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = [
+    "setuptools>=61",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
 dev = [
