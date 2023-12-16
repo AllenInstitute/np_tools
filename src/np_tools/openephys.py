@@ -5,7 +5,7 @@ import doctest
 import json
 import pathlib
 import tempfile
-from typing import Any, Generator, Optional, Sequence
+from typing import Any, Generator, Optional, Sequence, Iterable
 
 import np_logging
 
@@ -80,7 +80,8 @@ def get_ephys_root(path: pathlib.Path) -> pathlib.Path:
 
 
 def get_filtered_ephys_paths_relative_to_record_node_parents(
-    toplevel_ephys_path: pathlib.Path
+    toplevel_ephys_path: pathlib.Path,
+    specific_recording_dir_names: Iterable[str] | None = None
     ) -> Generator[tuple[pathlib.Path, pathlib.Path], None, None]:
     """For restructuring the raw ephys data in a session folder, we want to
     discard superfluous recording folders and only keep the "good" data, but
@@ -122,24 +123,51 @@ def get_filtered_ephys_paths_relative_to_record_node_parents(
     ie.
     - contents of expected ephys subfolders directly deposited in npexp_path
     
+    >>> path = pathlib.Path("//allen/programs/mindscope/workgroups/dynamicrouting/PilotEphys/Task 2 pilot/DRpilot_686176_20231206/DRpilot_686176_20231206")
+    >>> len(tuple(get_filtered_ephys_paths_relative_to_record_node_parents(path)))
+    230
+    >>> len(tuple(get_filtered_ephys_paths_relative_to_record_node_parents(path, 'recording1')))
+    230
+    >>> len(tuple(get_filtered_ephys_paths_relative_to_record_node_parents(path, 'recording2')))
+    230
+    >>> len(tuple(get_filtered_ephys_paths_relative_to_record_node_parents(path, ('recording1', 'recording2'))))
+    456
     """
+    def is_recording_name(name: str) -> bool:
+        return name.startswith('recording') and name[9:].isdigit()
+    
+    if specific_recording_dir_names:
+        if isinstance(specific_recording_dir_names, str):
+            specific_recording_dir_names = (specific_recording_dir_names,)
+        for name in specific_recording_dir_names:
+            if not is_recording_name(name):
+                raise ValueError(f'specific_recording_dir_names must be in the format "recording1": got {name!r}')
+
     record_nodes = toplevel_ephys_path.rglob('Record Node*')
     
-    for record_node in record_nodes:
-        
-        superfluous_recording_dirs = tuple(
-            _.parent for _ in get_superfluous_oebin_paths(record_node)
-        )
-        logger.debug(f'Found {len(superfluous_recording_dirs)} superfluous recording dirs to exclude: {superfluous_recording_dirs}')
-        
-        for abs_path in record_node.rglob('*'):
-            is_superfluous_path = any(_ in abs_path.parents for _ in superfluous_recording_dirs)
+    if specific_recording_dir_names:
+        for record_node in record_nodes:
+            for abs_path in record_node.rglob('*'):          
+                is_recording_child = any(is_recording_name(name) for name in abs_path.parts)
+                is_matching_name = any(name in abs_path.parts for name in specific_recording_dir_names)
+                if is_recording_child and not is_matching_name:
+                    continue
+                yield abs_path, abs_path.relative_to(record_node.parent) 
+    else: 
+        for record_node in record_nodes:
+            superfluous_recording_dirs = tuple(
+                _.parent for _ in get_superfluous_oebin_paths(record_node)
+            )
+            logger.debug(f'Found {len(superfluous_recording_dirs)} superfluous recording dirs to exclude: {superfluous_recording_dirs}')
             
-            if is_superfluous_path:
-                continue
-            
-            yield abs_path, abs_path.relative_to(record_node.parent)
-       
+            for abs_path in record_node.rglob('*'):
+                is_superfluous_path = abs_path in superfluous_recording_dirs or any(_ in abs_path.parents for _ in superfluous_recording_dirs)
+                
+                if is_superfluous_path:
+                    continue
+                
+                yield abs_path, abs_path.relative_to(record_node.parent)
+        
        
 def get_raw_ephys_subfolders(
     path: pathlib.Path, min_size_gb: Optional[int | float] = None
@@ -151,7 +179,7 @@ def get_raw_ephys_subfolders(
 
     subfolders = set()
 
-    for f in pathlib.Path(path).rglob('*.dat'):
+    for f in pathlib.Path(path).rglob('continuous.dat'):
 
         if any(
             k in f.as_posix().lower()
@@ -308,4 +336,4 @@ def read_oebin(path: str | pathlib.Path) -> dict[str, Any]:
 
 
 if __name__ == '__main__':
-    doctest.testmod(verbose=True)
+    doctest.testmod()
