@@ -27,7 +27,7 @@ if os.name == 'nt':
     try:
         proc = subprocess.run('fsutil behavior set SymlinkEvaluation R2R:1', check=True)
     except subprocess.CalledProcessError:
-        logger.warning('Failed to enable remote-to-remote symlink creation: try running as admin')
+        logger.info('Failed to enable remote-to-remote symlink creation: try running as admin')
         R2R_SYMLINKS_ENABLED = False
     else:
         R2R_SYMLINKS_ENABLED = True
