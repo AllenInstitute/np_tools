@@ -7,6 +7,7 @@ import pathlib
 import tempfile
 from typing import Any, Generator, Optional, Sequence, Iterable
 
+import np_config
 import np_logging
 
 import np_tools.file_io as file_io
@@ -34,7 +35,42 @@ def is_new_ephys_folder(path: pathlib.Path) -> bool:
             return True
     return False
 
-
+def correct_structure_oebin_files(dest: pathlib.Path) -> None:
+    """
+    Overwrites oebin files with correct metadata, removing entries for missing
+    folders.
+    
+    - in cases of probes not being inserted, raw data may be removed or not copied
+      over, and the structure.oebin will contain data paths for entries that don't exist
+    - this function will remove those entries from the structure.oebin file
+    """
+    logger.debug('Checking structure.oebin for missing folders...')
+    recording_dirs = dest.rglob('recording[0-9]*')
+    for recording_dir in recording_dirs:
+        if not recording_dir.is_dir():
+            continue
+        oebin_path = recording_dir / 'structure.oebin'
+        if not (oebin_path.is_symlink() or oebin_path.exists()):
+            logger.warning(f'No structure.oebin found in {recording_dir}')
+            continue
+        logger.debug(f'Examining oebin: {oebin_path} for correction')
+        if oebin_path.is_symlink():
+            oebin_path = np_config.normalize_path(oebin_path.readlink())
+        oebin_obj = read_oebin(oebin_path)
+        any_removed = False
+        for subdir_name in ('events', 'continuous'):    
+            subdir = oebin_path.parent / subdir_name
+            # iterate over copy of list so as to not disrupt iteration when elements are removed
+            for device in [device for device in oebin_obj[subdir_name]]:
+                if not (subdir / device['folder_name']).exists():
+                    logger.info(f'{device["folder_name"]} not found in {subdir}, removing from structure.oebin')
+                    oebin_obj[subdir_name].remove(device)
+                    any_removed = True
+        if any_removed:
+            oebin_path.unlink()
+            oebin_path.write_text(json.dumps(oebin_obj, indent=4))
+            logger.debug('Overwrote structure.oebin with corrected strcuture.oebin')
+            
 def is_complete_ephys_folder(path: pathlib.Path) -> bool:
     """Look for all hallmarks of a complete v0.6.x Open Ephys recording."""
     # TODO use structure.oebin to check for completeness
