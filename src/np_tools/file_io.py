@@ -157,7 +157,7 @@ def symlink(src: PathLike, dest: PathLike) -> None:
         for path in src.iterdir():
             symlink(src, dest / path.name)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.is_symlink() and dest.resolve() == src.resolve():
+    if dest.is_symlink() and dest.resolve() == src:
         logger.debug(f'Symlink already exists to {src} from {dest}')
         return
     with contextlib.suppress(FileNotFoundError):
