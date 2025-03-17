@@ -14,7 +14,6 @@ dependencies = [
     "np-logging>=0.5.1",
     "crc32c>=2.3.post0",
     "rich>=13.3.5",
-    "pynwb",
 ]
 requires-python = ">=3.7,<4"
 readme = "README.md"
